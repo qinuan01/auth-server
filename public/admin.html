@@ -1,0 +1,457 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Myau 卡密管理</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #0f0f14; color: #e0e0e0; min-height: 100vh; }
+.login-screen {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #0f0f14; z-index: 1000;
+}
+.login-screen.hidden { display: none; }
+.login-box {
+  background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 12px;
+  padding: 40px; width: 360px; text-align: center;
+}
+.login-box h1 { font-size: 22px; color: #fff; margin-bottom: 4px; }
+.login-box h1 span { color: #e06c75; }
+.login-box .subtitle { font-size: 13px; color: #666; margin-bottom: 28px; }
+.login-box .form-group { margin-bottom: 16px; text-align: left; }
+.login-box .form-group label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; }
+.login-box .form-group input {
+  width: 100%; background: #252535; border: 1px solid #3a3a4a; color: #fff;
+  padding: 10px 12px; border-radius: 6px; font-size: 14px; outline: none;
+}
+.login-box .form-group input:focus { border-color: #61afef; }
+.login-box .login-btn {
+  width: 100%; background: #e06c75; color: #fff; border: none;
+  padding: 10px; border-radius: 6px; font-size: 15px; cursor: pointer;
+  margin-top: 8px;
+}
+.login-box .login-btn:hover { background: #c95f68; }
+.login-box .login-btn:disabled { background: #3a3a4a; cursor: not-allowed; }
+.login-box .error-msg { color: #e06c75; font-size: 13px; margin-top: 10px; min-height: 20px; }
+.topbar { background: #1a1a24; border-bottom: 1px solid #2a2a3a; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; }
+.topbar h1 { font-size: 18px; color: #fff; }
+.topbar h1 span { color: #e06c75; }
+.topbar .user-info { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #888; }
+.topbar .user-info .username { color: #98c379; }
+.topbar .logout-btn { background: none; border: 1px solid #3a3a4a; color: #888; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; }
+.topbar .logout-btn:hover { background: #2a2a3a; color: #e06c75; border-color: #e06c75; }
+.container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+.stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.stat-card { background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 8px; padding: 16px; text-align: center; }
+.stat-card .num { font-size: 28px; font-weight: bold; }
+.stat-card .label { font-size: 12px; color: #888; margin-top: 4px; }
+.stat-card.total .num { color: #61afef; }
+.stat-card.unused .num { color: #98c379; }
+.stat-card.active .num { color: #56b6c2; }
+.stat-card.banned .num { color: #e06c75; }
+.stat-card.expired .num { color: #5c6370; }
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.tabs button { background: #1a1a24; border: 1px solid #2a2a3a; color: #888; padding: 8px 20px; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 13px; }
+.tabs button.active { background: #252535; color: #fff; border-bottom-color: #252535; }
+.panel { background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 0 8px 8px 8px; padding: 20px; display: none; }
+.panel.active { display: block; }
+.form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #2a2a3a; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 12px; color: #888; }
+.form-group input, .form-group select { background: #252535; border: 1px solid #3a3a4a; color: #fff; padding: 7px 10px; border-radius: 4px; font-size: 13px; }
+.btn { background: #61afef; color: #fff; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.btn:hover { opacity: 0.9; }
+.btn-danger { background: #e06c75; }
+.btn-warning { background: #d19a66; }
+.btn-success { background: #98c379; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 10px 12px; border-bottom: 2px solid #2a2a3a; color: #888; font-weight: 600; white-space: nowrap; }
+td { padding: 8px 12px; border-bottom: 1px solid #22222e; }
+tr:hover td { background: #1e1e2c; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+.badge-unused { background: #1a3a1a; color: #98c379; }
+.badge-active { background: #1a2a3a; color: #56b6c2; }
+.badge-banned { background: #3a1a1a; color: #e06c75; }
+.badge-expired { background: #2a2a2a; color: #5c6370; }
+.actions { display: flex; gap: 4px; }
+.actions button { border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; color: #fff; }
+.key-text { font-family: "Consolas", monospace; font-size: 12px; user-select: all; }
+.copy-btn { background: none; border: 1px solid #3a3a4a; color: #888; padding: 2px 8px; border-radius: 3px; cursor: pointer; font-size: 11px; margin-left: 4px; }
+.copy-btn:hover { background: #2a2a3a; color: #fff; }
+.log-time { color: #5c6370; font-size: 11px; white-space: nowrap; }
+.log-key { font-family: Consolas; font-size: 12px; }
+.log-msg { color: #aaa; }
+.toolbar { display: flex; justify-content: space-between; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+.search-box { background: #252535; border: 1px solid #3a3a4a; color: #fff; padding: 6px 10px; border-radius: 4px; font-size: 13px; width: 200px; }
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #252535; border: 1px solid #3a3a4a; padding: 10px 24px; border-radius: 6px; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); display: none; z-index: 999; }
+.toast.show { display: block; animation: fadeInOut 2s ease forwards; }
+@keyframes fadeInOut { 0% { opacity: 0; transform: translateX(-50%) translateY(20px); } 10% { opacity: 1; transform: translateX(-50%) translateY(0); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-10px); } }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 500; }
+.modal-overlay.show { display: flex; }
+.modal-box { background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 10px; padding: 24px; width: 480px; max-width: 90vw; }
+.modal-box h3 { margin-bottom: 12px; }
+.modal-box textarea { width: 100%; height: 180px; background: #252535; border: 1px solid #3a3a4a; color: #fff; padding: 10px; border-radius: 4px; font-family: Consolas; font-size: 12px; resize: vertical; }
+.modal-box .modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-screen">
+  <div class="login-box">
+    <h1>Myau<span>Auth</span></h1>
+    <div class="subtitle">卡密管理系统</div>
+    <div class="form-group">
+      <label>用户名</label>
+      <input type="text" id="loginUser" placeholder="请输入用户名" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label>密码</label>
+      <input type="password" id="loginPass" placeholder="请输入密码" autocomplete="current-password">
+    </div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">登 录</button>
+    <div class="error-msg" id="loginError"></div>
+  </div>
+</div>
+
+<div id="adminPanel" style="display:none;">
+  <div class="topbar">
+    <h1>Myau<span>Auth</span> <span style="font-size:13px;color:#888;font-weight:400;">卡密管理系统</span></h1>
+    <div class="user-info">
+      <span>👤 <span class="username" id="displayUser">qinuan</span></span>
+      <button class="logout-btn" onclick="doLogout()">退出登录</button>
+    </div>
+  </div>
+  <div class="container">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card total"><div class="num" id="statTotal">0</div><div class="label">总计</div></div>
+      <div class="stat-card unused"><div class="num" id="statUnused">0</div><div class="label">未使用</div></div>
+      <div class="stat-card active"><div class="num" id="statActive">0</div><div class="label">已激活</div></div>
+      <div class="stat-card banned"><div class="num" id="statBanned">0</div><div class="label">已封禁</div></div>
+      <div class="stat-card expired"><div class="num" id="statExpired">0</div><div class="label">已过期</div></div>
+    </div>
+    <div class="tabs">
+      <button class="active" onclick="switchTab('keys')">🔑 卡密管理</button>
+      <button onclick="switchTab('logs')">📋 验证日志</button>
+      <button onclick="switchTab('import')">📥 批量导入</button>
+    </div>
+    <div class="panel active" id="panel-keys">
+      <div class="form-row">
+        <div class="form-group"><label>数量</label><input type="number" id="createCount" value="1" min="1" max="100"></div>
+        <div class="form-group"><label>有效期(天)</label><input type="number" id="createDuration" value="30" min="0"></div>
+        <div class="form-group"><label>备注</label><input type="text" id="createNotes" placeholder="可选备注"></div>
+        <button class="btn" onclick="createKeys()">生成卡密</button>
+        <button class="btn btn-success" onclick="generateAndCopy()">生成并复制</button>
+      </div>
+      <div class="toolbar">
+        <input class="search-box" placeholder="搜索卡密..." oninput="filterKeys(this.value)">
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-warning" onclick="exportKeys()">📤 导出 CSV</button>
+          <button onclick="loadKeys()" style="background:#252535;border:1px solid #3a3a4a;color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;">🔄 刷新</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>卡密</th><th>状态</th><th>HWID</th><th>有效期</th><th>创建时间</th><th>操作</th></tr></thead>
+          <tbody id="keysBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel" id="panel-logs">
+      <div style="margin-bottom:12px;display:flex;justify-content:space-between;">
+        <span style="font-size:13px;color:#888;">最近 200 条日志</span>
+        <button onclick="loadLogs()" style="background:#252535;border:1px solid #3a3a4a;color:#fff;padding:6px 14px;border-radius:4px;cursor:pointer;font-size:12px;">🔄 刷新</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>时间</th><th>卡密</th><th>操作</th><th>HWID</th><th>消息</th></tr></thead>
+          <tbody id="logsBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel" id="panel-import">
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="margin-bottom:6px;">粘贴卡密列表（每行一个）</label>
+        <textarea id="batchImport" rows="10" style="width:100%;background:#252535;border:1px solid #3a3a4a;color:#fff;padding:10px;border-radius:4px;font-family:Consolas;font-size:12px;resize:vertical;" placeholder="每行输入一个卡密..."></textarea>
+      </div>
+      <button class="btn btn-success" onclick="batchImport()">📥 批量导入</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="keyModal">
+  <div class="modal-box">
+    <h3>✅ 生成成功</h3>
+    <textarea id="modalKeys" readonly></textarea>
+    <div class="modal-actions">
+      <button class="btn" onclick="copyModal()">📋 复制全部</button>
+      <button class="btn btn-danger" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+var adminToken = localStorage.getItem('admin_token') || '';
+var adminUser = localStorage.getItem('admin_user') || '';
+
+function api(path, opts) {
+  opts = opts || {};
+  var headers = { 'Content-Type': 'application/json' };
+  if (adminToken) { headers['Authorization'] = 'Bearer ' + adminToken; }
+  return fetch(path, Object.assign({}, opts, { headers: headers })).then(function(r) { return r.json(); });
+}
+
+function toast(msg, bg) {
+  var el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = bg || '#252535';
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 2200);
+}
+
+function doLogin() {
+  var username = document.getElementById('loginUser').value.trim();
+  var password = document.getElementById('loginPass').value;
+  var btn = document.getElementById('loginBtn');
+  var errEl = document.getElementById('loginError');
+  if (!username || !password) { errEl.textContent = '请输入用户名和密码'; return; }
+  btn.disabled = true;
+  btn.textContent = '登录中...';
+  errEl.textContent = '';
+  fetch('/api/admin/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: username, password: password })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.success) {
+      adminToken = d.token;
+      adminUser = d.user.username;
+      localStorage.setItem('admin_token', adminToken);
+      localStorage.setItem('admin_user', adminUser);
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('adminPanel').style.display = 'block';
+      document.getElementById('displayUser').textContent = adminUser;
+      loadAll();
+      toast('登录成功，欢迎回来');
+    } else {
+      errEl.textContent = d.message || '登录失败';
+    }
+  })
+  .catch(function() { errEl.textContent = '网络错误，请检查服务器'; })
+  .finally(function() { btn.disabled = false; btn.textContent = '登 录'; });
+}
+
+function doLogout() {
+  adminToken = '';
+  adminUser = '';
+  localStorage.removeItem('admin_token');
+  localStorage.removeItem('admin_user');
+  document.getElementById('adminPanel').style.display = 'none';
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').textContent = '';
+  toast('已退出登录');
+}
+
+var allKeys = [];
+function loadAll() { loadStats(); loadKeys(); loadLogs(); }
+
+function loadStats() {
+  api('/api/admin/stats').then(function(d) {
+    if (!d.success) return;
+    document.getElementById('statTotal').textContent = d.stats.total;
+    document.getElementById('statUnused').textContent = d.stats.unused;
+    document.getElementById('statActive').textContent = d.stats.active;
+    document.getElementById('statBanned').textContent = d.stats.banned;
+    document.getElementById('statExpired').textContent = d.stats.expired;
+  });
+}
+
+function loadKeys() {
+  api('/api/admin/keys').then(function(d) {
+    if (!d.success) return;
+    allKeys = d.keys;
+    renderKeys(d.keys);
+  });
+}
+
+function renderKeys(keys) {
+  var sm = { unused: '未使用', active: '已激活', banned: '已封禁', expired: '已过期' };
+  var h = '';
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    h += '<tr>'
+      + '<td>' + k.id + '</td>'
+      + '<td><span class="key-text">' + k.key + '</span> <button class="copy-btn" onclick="copyText(\'' + k.key + '\')">复制</button></td>'
+      + '<td><span class="badge badge-' + k.status + '">' + (sm[k.status] || k.status) + '</span></td>'
+      + '<td style="font-family:Consolas;font-size:11px;color:#5c6370;">' + (k.hwid ? k.hwid.substring(0,20) + '...' : '-') + '</td>'
+      + '<td>' + (k.duration_days > 0 ? k.duration_days + ' 天' : '永久') + '</td>'
+      + '<td style="font-size:11px;color:#5c6370;">' + k.created_at + '</td>'
+      + '<td><div class="actions">'
+      + (k.status === 'banned'
+        ? '<button style="background:#98c379" onclick="unbanKey(\'' + k.key + '\')">解封</button>'
+        : '<button style="background:#d19a66" onclick="banKey(\'' + k.key + '\')">封禁</button>')
+      + '<button style="background:#e06c75" onclick="deleteKey(' + k.id + ',\'' + k.key + '\')">删除</button>'
+      + '</div></td></tr>';
+  }
+  document.getElementById('keysBody').innerHTML = h;
+}
+
+function filterKeys(query) {
+  var q = query.toLowerCase();
+  var f = [];
+  for (var i = 0; i < allKeys.length; i++) {
+    var k = allKeys[i];
+    if (k.key.toLowerCase().indexOf(q) !== -1 || (k.hwid && k.hwid.toLowerCase().indexOf(q) !== -1) || k.status.indexOf(q) !== -1) {
+      f.push(k);
+    }
+  }
+  renderKeys(f);
+}
+
+function copyText(t) {
+  navigator.clipboard.writeText(t).then(function() { toast('已复制: ' + t); }).catch(function() { toast('复制失败'); });
+}
+
+function createKeys() {
+  var c = parseInt(document.getElementById('createCount').value) || 1;
+  var d = parseInt(document.getElementById('createDuration').value) || 30;
+  var n = document.getElementById('createNotes').value;
+  api('/api/admin/keys', { method: 'POST', body: JSON.stringify({ count: c, duration: d, notes: n }) })
+    .then(function(r) {
+      if (r.success) {
+        document.getElementById('modalKeys').value = r.keys.join('\n');
+        document.getElementById('keyModal').classList.add('show');
+        toast('成功生成 ' + r.count + ' 个卡密');
+        loadAll();
+      } else {
+        toast('生成失败: ' + (r.error || '未知错误'), '#e06c75');
+      }
+    });
+}
+
+function generateAndCopy() {
+  var c = parseInt(document.getElementById('createCount').value) || 1;
+  var d = parseInt(document.getElementById('createDuration').value) || 30;
+  var n = document.getElementById('createNotes').value;
+  api('/api/admin/keys', { method: 'POST', body: JSON.stringify({ count: c, duration: d, notes: n }) })
+    .then(function(r) {
+      if (r.success) {
+        navigator.clipboard.writeText(r.keys.join('\n')).then(function() { toast('已复制' + r.count + ' 个卡密到剪贴板'); });
+        loadAll();
+      } else {
+        toast('生成失败', '#e06c75');
+      }
+    });
+}
+
+function batchImport() {
+  var t = document.getElementById('batchImport').value.trim();
+  if (!t) { toast('请先输入卡密', '#e06c75'); return; }
+  var keys = t.split('\n').map(function(s) { return s.trim(); }).filter(function(s) { return s.length >= 10; });
+  if (keys.length === 0) { toast('没有有效的卡密', '#e06c75'); return; }
+  api('/api/admin/batch-import', { method: 'POST', body: JSON.stringify({ keys: keys, duration: 30 }) })
+    .then(function(r) {
+      if (r.success) { toast('成功导入 ' + r.count + ' 个卡密'); document.getElementById('batchImport').value = ''; loadAll(); }
+      else { toast('导入失败', '#e06c75'); }
+    });
+}
+
+function banKey(key) {
+  if (!confirm('确定封禁 ' + key + ' ？')) return;
+  api('/api/admin/ban', { method: 'POST', body: JSON.stringify({ key: key }) }).then(function(d) { toast(d.message); loadAll(); });
+}
+
+function unbanKey(key) {
+  api('/api/admin/unban', { method: 'POST', body: JSON.stringify({ key: key }) }).then(function(d) { toast(d.message); loadAll(); });
+}
+
+function deleteKey(id, key) {
+  if (!confirm('确定删除卡密 ' + key + ' ？\n此操作不可恢复！')) return;
+  api('/api/admin/keys', { method: 'DELETE', body: JSON.stringify({ key: key }) }).then(function(d) { toast(d.message); loadAll(); });
+}
+
+function exportKeys() {
+  var t = '';
+  for (var i = 0; i < allKeys.length; i++) {
+    var k = allKeys[i];
+    t += k.key + '\t' + k.status + '\t' + (k.hwid || '') + '\t' + k.duration_days + '天\t' + k.created_at + '\n';
+  }
+  var blob = new Blob(['\ufeff' + '卡密\t状态\tHWID\t有效期\t创建时间\n' + t], { type: 'text/csv;charset=utf-8' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'myau_keys.csv'; a.click();
+  toast('已导出 CSV');
+}
+
+function loadLogs() {
+  api('/api/admin/logs?limit=200').then(function(d) {
+    if (!d.success) return;
+    var am = { activate: '🟢 激活', verify: '🔵 验证', reject: '🔴 拒绝' };
+    var h = '';
+    for (var i = 0; i < d.logs.length; i++) {
+      var l = d.logs[i];
+      h += '<tr>'
+        + '<td class="log-time">' + l.created_at + '</td>'
+        + '<td class="log-key">' + (l.key || '-') + '</td>'
+        + '<td>' + (am[l.action] || l.action) + '</td>'
+        + '<td style="font-family:Consolas;font-size:11px;color:#5c6370">' + (l.hwid ? l.hwid.substring(0,20) + '...' : '-') + '</td>'
+        + '<td class="log-msg">' + (l.message || '') + '</td></tr>';
+    }
+    document.getElementById('logsBody').innerHTML = h;
+  });
+}
+
+function switchTab(name) {
+  var btns = document.querySelectorAll('.tabs button');
+  for (var i = 0; i < btns.length; i++) { btns[i].classList.remove('active'); }
+  var panels = document.querySelectorAll('.panel');
+  for (var i = 0; i < panels.length; i++) { panels[i].classList.remove('active'); }
+  for (var i = 0; i < btns.length; i++) {
+    var b = btns[i];
+    if ((name === 'keys' && b.textContent.indexOf('卡密') !== -1) || (name === 'logs' && b.textContent.indexOf('日志') !== -1) || (name === 'import' && b.textContent.indexOf('导入') !== -1)) {
+      b.classList.add('active'); break;
+    }
+  }
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function closeModal() { document.getElementById('keyModal').classList.remove('show'); }
+
+function copyModal() {
+  var t = document.getElementById('modalKeys').value;
+  navigator.clipboard.writeText(t).then(function() { toast('已复制到剪贴板'); });
+}
+
+(function() {
+  if (adminToken) {
+    api('/api/admin/stats').then(function(d) {
+      if (d.success) {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('adminPanel').style.display = 'block';
+        document.getElementById('displayUser').textContent = adminUser || '管理员';
+        loadAll();
+      } else {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_user');
+        adminToken = '';
+        adminUser = '';
+      }
+    }).catch(function() {});
+  }
+  document.getElementById('loginPass').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('loginUser').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') document.getElementById('loginPass').focus();
+  });
+})();
+</script>
+</body>
+</html>
